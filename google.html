@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Flybuy JS SDK Google Maps Example</title>
+    <meta charset="UTF-8" />
+    <link rel="icon" href="data:;base64,iVBORw0KGgo=">
+    <script
+    src="https://maps.googleapis.com/maps/api/js?key=<GOOGLE MAPS API KEY"></script>
+    <script src="flybuy.js"></script>
+    <script>
+      window.flybuy = new Flybuy();
+
+      window.addEventListener('DOMContentLoaded', () => {
+        let jsonFile = 'sample_data/initial_orders_api.json';
+
+        fetch(jsonFile).then(response => response.json()).then(data => {
+          flybuy.createMap('div#map', data);
+        });
+      });
+
+      window.addEventListener('beforeunload', () => {
+        flybuy.removeMap(); // You should call removeMap when using this with reactive frameworks
+      });
+
+      // DEBUG - this is here to test updating
+      setTimeout(() => {
+        let jsonFile = 'sample_data/orders_api_update.json';
+
+        fetch(jsonFile).then(response => response.json()).then(data => {
+          flybuy.update(data);
+        });
+      }, 3 * 1000);
+    </script>
+    <style>
+      body {
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      div#map {
+        background-color: #efefef;
+        height: 600px;
+        width: 800px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+  </body>
+</html>

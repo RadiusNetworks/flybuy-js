@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Flybuy JS SDK Google Maps Example</title>
+    <meta charset="UTF-8" />
+    <script src="flybuy.js"></script>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.2.0/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.2.0/mapbox-gl.css' rel='stylesheet' />
+    <script>
+      mapboxgl.accessToken = '<your access token here>';
+
+      window.addEventListener('DOMContentLoaded', () => {
+        window.flybuy = new Flybuy();
+
+        fetch('sample/initial_orders_api.json').then(response => response.json()).then(data => {
+          flybuy.createMap('div#map', data);
+        });
+      });
+    </script>
+    <style>
+      body {
+        height: 100vh;
+        width: 100vw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      div#map {
+        background-color: #efefef;
+        height: 600px;
+        width: 800px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+  </body>
+</html>
