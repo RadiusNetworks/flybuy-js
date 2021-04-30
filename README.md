@@ -43,7 +43,12 @@ fetch(jsonFile).then(response => response.json()).then(data => {
 });
 ```
 
+## Example implementations
+
+See the sample [Google Maps](google.html) and [Mapbox](mapbox.html) implementations.
+
 ## Features not implemented yet
 
 * The `update` method will move existing markers but it will not remove markers from the map
 * The `update` method can accept new polygons for pickup areas and premises, but it will not draw them yet
+* Mapbox is not yet supported as a provider
