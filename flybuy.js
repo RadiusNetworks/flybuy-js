@@ -174,8 +174,8 @@ class Flybuy {
     }
 
     // Attempt to find the premises polygon from the data provided
-    if (data.site && data.site.premises_area) {
-      let premisesFeature = data.site.premises_area;
+    if (data.site && data.site.premises_coordinates) {
+      let premisesFeature = data.site.premises_coordinates;
       let premisesGeoJson = {'type': 'FeatureCollection', 'features': [premisesFeature]};
       this._premisesFeatureId = premisesFeature.id;
 

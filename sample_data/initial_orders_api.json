@@ -81,7 +81,7 @@
                   }
               }
           ],
-          "premises_area": {
+          "premises_coordinates": {
               "type": "Feature",
               "id": "premises-1",
               "properties": {
