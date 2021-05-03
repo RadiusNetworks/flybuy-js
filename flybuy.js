@@ -39,7 +39,7 @@ class Flybuy {
         this.map = map;
         this._drawPremises(payloadData.data);
         this._drawPickupAreas(payloadData.data);
-        this._updateOrders(payloadData, true);
+        this._updateOrders(payloadData.data);
         this._styleMap();
         callback(true);
       })
@@ -58,26 +58,32 @@ class Flybuy {
     }
   }
 
-  update(data) {
-    this._updateOrders(data);
+  update(payloadData) {
+    this._updateOrders(payloadData.data);
+
+    if (payloadData.data.site) {
+      this._drawPremises(payloadData.data);
+      this._drawPickupAreas(payloadData.data);
+      this._styleMap();
+    }
   }
 
   // PRIVATE METHODS
 
-  _updateOrders(payloadData, initialUpdate=false) {
+  _updateOrders(payloadData) {
     if (!this.map) {
-      throw new Error('You must call createMap before attempting to update orders.');
+      throw new Error('You must call createMap before attempting to call _updateOrders.');
     }
 
     let orders = [];
 
     // Data came from a webhook
     if (payloadData && payloadData.data && payloadData.data.type === 'order') {
-      orders = [payloadData.data]; // make an array of one object
+      orders = [payloadData.orders]; // make an array of one object
     }
     // Data came from orders API
-    else if (payloadData && payloadData.data && payloadData.data.orders && Array.isArray(payloadData.data.orders)) {
-      orders = payloadData.data.orders;
+    else if (payloadData && payloadData.orders && Array.isArray(payloadData.orders)) {
+      orders = payloadData.orders;
     }
 
     orders.forEach(order => {
@@ -93,11 +99,6 @@ class Flybuy {
         this._moveMarker(markerObj.marker, order.customer_latitude, order.customer_longitude);
       }
     });
-
-    // If there was a site object passed in, try to redraw the polygons (unless it's the initial update)
-    if (!initialUpdate && payloadData && payloadData.data && payloadData.data.site) {
-      console.warn('Redrawing polygons in _updateOrders is not yet supported');
-    }
 
     // Center the map on the bounds of all the markers
     this._centerMap();
@@ -170,7 +171,7 @@ class Flybuy {
   // Draw the premises polygon on the map (if it exists)
   _drawPremises(data) {
     if (!this.map) {
-      throw new Error('You must call createMap before attempting to draw a premises feature.');
+      throw new Error('You must call createMap before attempting to call _drawPremises.');
     }
 
     // Attempt to find the premises polygon from the data provided
@@ -180,6 +181,7 @@ class Flybuy {
       this._premisesFeatureId = premisesFeature.id;
 
       if (this.provider === 'google') {
+        this._clearFeature(premisesFeature.id);
         this.map.data.addGeoJson(premisesGeoJson);
         this._centerMap();
       }
@@ -189,6 +191,15 @@ class Flybuy {
     }
     else {
       console.warn('Could not find premises feature in the data provided');
+    }
+  }
+
+  // Attempt to remove the feature if it exists on the map already
+  _clearFeature(featureId) {
+    let existingFeature = this.map.data.getFeatureById(featureId);
+
+    if (existingFeature) {
+      this.map.data.remove(existingFeature);
     }
   }
 
@@ -218,7 +229,7 @@ class Flybuy {
   // Draw the pickup areas polygons on the map (if they exist)
   _drawPickupAreas(data) {
     if (!this.map) {
-      throw new Error('You must call createMap before attempting to draw pickup area features.');
+      throw new Error('You must call createMap before attempting to call _drawPickupAreas.');
     }
 
      // Attempt to find the pickup areas polygons from the data provided
@@ -238,6 +249,7 @@ class Flybuy {
       const pickupAreasJson = {'type': 'FeatureCollection', 'features': pickupAreasFeatures};
 
       if (this.provider === 'google') {
+        pickupAreasFeatures.forEach(feature => this._clearFeature(feature.id));
         this.map.data.addGeoJson(pickupAreasJson);
       }
       else {
