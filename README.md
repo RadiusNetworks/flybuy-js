@@ -18,6 +18,8 @@ _Note: The Flybuy JS SDK will automatically determine that you want to use Googl
 
 First, instantiate a new `Flybuy` object. After you have done that, you can call `flybuy.createMap` once you have the data you wish to load. The first argument to the method should the selector string. (not a DOM element)
 
+The instantiated `Flybuy` object does not need to be global in scope, you may assign it to whatever context works for your application.
+
 ```
 let flybuy = new Flybuy();
 
@@ -42,6 +44,10 @@ fetch(jsonFile).then(response => response.json()).then(data => {
   flybuy.update(data);
 });
 ```
+
+## Removing a map
+
+If you are using a reactive framework (such as React or Vue), you should call `removeMap` when your component is destroyed. **Failure to do so can result in WebGL errors.**
 
 ## Example implementations
 
