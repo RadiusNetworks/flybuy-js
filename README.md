@@ -49,11 +49,19 @@ fetch(jsonFile).then(response => response.json()).then(data => {
 
 If you are using a reactive framework (such as React or Vue), you should call `removeMap` when your component is destroyed. **Failure to do so can result in WebGL errors.**
 
+## Removing a marker
+
+If you want to remove a marker from a map, you can call `flybuy.removeMarker` and pass it that marker's `id` property:
+```
+let markerIdToRemove = 13;
+
+flybuy.removeMarker(markerIdToRemove);
+```
+
 ## Example implementations
 
 See the sample [Google Maps](google.html) and [Mapbox](mapbox.html) implementations.
 
 ## Features not implemented yet
 
-* The `update` method will move existing markers but it will not remove markers from the map
 * Mapbox is not yet supported as a provider
