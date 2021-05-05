@@ -58,6 +58,19 @@ class Flybuy {
     }
   }
 
+  removeMarker(markerId) {
+    let markerIndex = this.markers.findIndex(marker => marker.orderId === markerId);
+    if (markerIndex === -1) return false;
+
+    if (this.provider === 'google') {
+      this.markers[markerIndex].marker.setMap(null);
+      this.markers.splice(markerIndex, 1);
+    }
+    else if (this.provider === 'mapbox') {
+      console.log('removingMarker for provider is not yet supported');
+    }
+  }
+
   update(payloadData) {
     this._updateOrders(payloadData.data);
 
@@ -301,6 +314,7 @@ class Flybuy {
     if (this.provider === 'google') {
       let position = {lat, lng};
       let marker = new google.maps.Marker({map: map, position: position, draggable: false});
+      marker
       return marker;
     }
     else {
