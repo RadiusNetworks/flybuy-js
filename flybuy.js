@@ -6,6 +6,7 @@ class Flybuy {
     this.markers = [];
     this._premisesFeatureId;
     this._pickupAreaFeatureIds = [];
+    this._premisesBounds = null;
   }
 
   // PUBLIC METHODS
@@ -73,6 +74,7 @@ class Flybuy {
 
   update(payloadData) {
     this._updateOrders(payloadData.data);
+
 
     if (payloadData.data.site) {
       this._drawPremises(payloadData.data);
@@ -149,7 +151,19 @@ class Flybuy {
         resolve(map);
       }
       else if (provider === 'mapbox') {
-        throw new Error('Mapbox is not yet supported.');
+        let map = new mapboxgl.Map({
+          container: containerElement,
+          style: 'mapbox://styles/mapbox/streets-v11',
+          center: [lng, lat],
+          zoom: 17
+        });
+
+        let bounds = new mapboxgl.LngLatBounds([lng,lat], [lng,lat]);
+        map.fitBounds(bounds);
+
+        map.on('load', () => {
+          resolve(map);
+        });
       }
       else {
         reject('Could not create map for provider');
@@ -190,13 +204,31 @@ class Flybuy {
     // Attempt to find the premises polygon from the data provided
     if (data.site && data.site.premises_coordinates) {
       let premisesFeature = data.site.premises_coordinates;
-      let premisesGeoJson = {'type': 'FeatureCollection', 'features': [premisesFeature]};
       this._premisesFeatureId = premisesFeature.id;
 
       if (this.provider === 'google') {
+        let premisesGeoJson = {'type': 'FeatureCollection', 'features': [premisesFeature]};
         this._clearFeature(premisesFeature.id);
         this.map.data.addGeoJson(premisesGeoJson);
         this._centerMap();
+      }
+      else if (this.provider === 'mapbox') {
+        this._clearFeature(premisesFeature.id);
+
+        let sourceId = `source-premises-${premisesFeature.id}`;
+        let sourceFeature = {'type': 'geojson', 'data': premisesFeature};
+        this.map.addSource(sourceId, sourceFeature);
+        this._premisesBounds = this._computePolygonBoundingBox(premisesFeature);
+
+        this.map.addLayer({
+          'id': 'premises-layer',
+          'type': 'line',
+          'source': sourceId,
+          'paint': {
+            'line-color': '#FFCC00',
+            'line-width': 3
+          }
+        });
       }
       else {
         console.error('Adding premises for provider not yet supported');
@@ -207,36 +239,69 @@ class Flybuy {
     }
   }
 
+  // Create a Mapbox LngLatBounds for a GeoJSON feature
+  _mapboxBoundsForFeature(feature) {
+    let bounds = new mapboxgl.LngLatBounds();
+
+    feature.geometry.coordinates.forEach(coordinates => {
+      bounds.extend(coordinates);
+    });
+
+    return bounds;
+  }
+
   // Attempt to remove the feature if it exists on the map already
   _clearFeature(featureId) {
-    let existingFeature = this.map.data.getFeatureById(featureId);
 
-    if (existingFeature) {
+    if (this.provider === 'google') {
+      let existingFeature = this.map.data.getFeatureById(featureId);
+      if (!existingFeature) return;
       this.map.data.remove(existingFeature);
+    }
+    else if (this.provider === 'mapbox') {
+      console.warn('Mapbox clear features not implemented yet');
+    }
+    else {
+      throw new Error('Clearing feature for provider is not yet supported');
     }
   }
 
   // Centers the map based on the features that have been added
   _centerMap() {
     if (!this.map) {
-      throw new Error('You must call createMap before you attempt to call _recenterMap');
+      throw new Error('You must call createMap before you attempt to call _centerMap');
     }
 
-    let bounds = new google.maps.LatLngBounds();
+    if (this.provider === 'google') {
+      let bounds = new google.maps.LatLngBounds();
 
-    this.markers.forEach(markerObj => {
-      bounds.extend(markerObj.marker.position);
-    });
+      this.markers.forEach(markerObj => {
+        bounds.extend(markerObj.marker.position);
+      });
 
-    this.map.data.forEach(feature => {
-      if (feature.getGeometry().getType() === 'Polygon') {
-        feature.getGeometry().forEachLatLng(function(latlng) {
-          bounds.extend(latlng);
-        });
-      }
-    });
+      this.map.data.forEach(feature => {
+        if (feature.getGeometry().getType() === 'Polygon') {
+          feature.getGeometry().forEachLatLng(function(latlng) {
+            bounds.extend(latlng);
+          });
+        }
+      });
 
-    this.map.fitBounds(bounds);
+      this.map.fitBounds(bounds);
+    }
+    else if (this.provider === 'mapbox') {
+      let bounds = new mapboxgl.LngLatBounds();
+
+      this.markers.forEach(markerObj => {
+        bounds.extend(markerObj.marker.getLngLat());
+      });
+
+      bounds.extend(this._premisesBounds);
+      this.map.fitBounds(bounds, {padding: 50});
+    }
+    else {
+      throw new Error('centering map is not yet supported for this provider');
+    }
   }
 
   // Draw the pickup areas polygons on the map (if they exist)
@@ -264,6 +329,33 @@ class Flybuy {
       if (this.provider === 'google') {
         pickupAreasFeatures.forEach(feature => this._clearFeature(feature.id));
         this.map.data.addGeoJson(pickupAreasJson);
+      }
+      else if (this.provider === 'mapbox') {
+        pickupAreasFeatures.forEach(feature => this._clearFeature(feature.id));
+
+        let sourceId = 'source-pickup-areas';
+        let sourceFeatures = {'type': 'geojson', 'data': pickupAreasJson};
+        this.map.addSource(sourceId, sourceFeatures);
+
+        this.map.addLayer({
+          'id': 'pickup-areas-fill-layer',
+          'type': 'fill',
+          'source': sourceId,
+          'paint': {
+            'fill-color': '#FFCC00',
+            'fill-opacity': 0.25,
+          }
+        });
+
+        this.map.addLayer({
+          'id': 'pickup-areas-stroke-layer',
+          'type': 'line',
+          'source': sourceId,
+          'paint': {
+            'line-color': '#FFCC00',
+            'line-width': 3
+          }
+        });
       }
       else {
         console.error('Adding pickup zones for provider not yet supported');
@@ -298,8 +390,12 @@ class Flybuy {
         }
       });
     }
+    else if (this.provider === 'mapbox') {
+      // We don't need to do anything for mapbox
+      return;
+    }
     else {
-      throw new Error('Styling the map is not supported yet for this provider');
+      throw new Error('_styleMap is not supported for this provider');
     }
   }
 
@@ -314,7 +410,10 @@ class Flybuy {
     if (this.provider === 'google') {
       let position = {lat, lng};
       let marker = new google.maps.Marker({map: map, position: position, draggable: false});
-      marker
+      return marker;
+    }
+    else if (this.provider === 'mapbox') {
+      let marker = new mapboxgl.Marker().setLngLat([lng, lat]).addTo(this.map);
       return marker;
     }
     else {
@@ -337,5 +436,46 @@ class Flybuy {
     else {
       throw new Error('Moving marker for provider not yet supported');
     }
+  }
+
+  _oldcomputePolygonBoundingBox(data) {
+    var bounds = {}, coordinates, latitude, longitude;
+
+    for (let i=0; i < data.features.length; i++) {
+      coordinates = data.features[i].geometry.coordinates;
+
+      if (coordinates.length === 1) {
+        for (var j = 0; j < coordinates[0].length; j++) {
+          longitude = coordinates[0][j][0];
+          latitude  = coordinates[0][j][1];
+
+          // Update the bounds recursively by comparing the current xMin/xMax and yMin/yMax with the current coord
+          bounds.xMin = bounds.xMin < longitude ? bounds.xMin : longitude;
+          bounds.xMax = bounds.xMax > longitude ? bounds.xMax : longitude;
+          bounds.yMin = bounds.yMin < latitude ? bounds.yMin : latitude;
+          bounds.yMax = bounds.yMax > latitude ? bounds.yMax : latitude;
+        }
+      }
+    }
+
+    return [[bounds.xMin, bounds.yMin], [bounds.xMax, bounds.yMax]];
+  }
+
+  _computePolygonBoundingBox(feature) {
+    let bounds = {};
+    let coordinates = feature.geometry.coordinates;
+
+    for (let i=0; i < coordinates[0].length; i++) {
+      let longitude = coordinates[0][i][0];
+      let latitude  = coordinates[0][i][1];
+
+        // Update the bounds recursively by comparing the current xMin/xMax and yMin/yMax with the current coord
+        bounds.xMin = bounds.xMin < longitude ? bounds.xMin : longitude;
+        bounds.xMax = bounds.xMax > longitude ? bounds.xMax : longitude;
+        bounds.yMin = bounds.yMin < latitude ? bounds.yMin : latitude;
+        bounds.yMax = bounds.yMax > latitude ? bounds.yMax : latitude;
+    }
+
+    return [[bounds.xMin, bounds.yMin], [bounds.xMax, bounds.yMax]];
   }
 }
