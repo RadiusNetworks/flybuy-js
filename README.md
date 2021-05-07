@@ -16,7 +16,7 @@ _Note: The Flybuy JS SDK will automatically determine that you want to use Googl
 
 ## Creating a map
 
-First, instantiate a new `Flybuy` object. After you have done that, you can call `flybuy.createMap` once you have the data you wish to load. The first argument to the method should the selector string. (not a DOM element)
+First, instantiate a new `Flybuy` object. After you have done that, you can call `flybuy.createMap` once you have the data you wish to load. The first argument to the method should the selector string or a DOM element.
 
 The instantiated `Flybuy` object does not need to be global in scope, you may assign it to whatever context works for your application.
 
@@ -30,6 +30,13 @@ window.addEventListener('DOMContentLoaded', () => {
     flybuy.createMap('div#map', data);
   });
 });
+```
+
+If you wish to pass a HTML element to `createMap`, you can do so:
+
+```
+let container = document.querySelector('div#map');
+flybuy.createMap(container, data);
 ```
 
 _Note: The DOM must be loaded before you attempt to create the map. The example uses the `DOMContentLoaded` event, but you could also move the `<script>` tag after the body._
