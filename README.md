@@ -41,11 +41,19 @@ flybuy.createMap(container, data);
 
 _Note: The DOM must be loaded before you attempt to create the map. The example uses the `DOMContentLoaded` event, but you could also move the `<script>` tag after the body._
 
+## Showing the navigation controls on the map
+
+By default, the navigation controls (zoom, orient, street view, etc.) are hidden. If you wish to display them, you can pass `true` to `createMap`:
+```
+let showControls = true;
+flybuy.createMap(container, data, showControls);
+```
+
 ## Completion handler hook when creating maps
 
 If you need a completion handler hook when creating a map, `createMap` returns a Promise:
 ```
-flybuy.createMap(container, data)
+flybuy.createMap(container, data, showControls)
   .then(success => {})
   .catch(success => {})
 });
