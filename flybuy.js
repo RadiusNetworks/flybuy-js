@@ -119,11 +119,19 @@ class Flybuy {
     this._centerMap();
   }
 
-  _findContainerElement(selector) {
-    let element = document.querySelector(selector);
+  _findContainerElement(containerSelector) {
+    let element = containerSelector;
 
-    if (!element) {
-      throw new Error(`Unable to find DOM element for selector: "${selector}"`);
+    // If it's a string, assume it's a selector and not an element
+    if (typeof(containerSelector) === 'string') {
+      element = document.querySelector(containerSelector);
+    }
+
+    // Make sure the element exists in the visible DOM
+    let elementExists = document.body.contains(element);
+
+    if (!elementExists) {
+      throw new Error(`Unable to find DOM element for selector: "${containerSelector}"`);
     }
     else {
       return element;
