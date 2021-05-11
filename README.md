@@ -41,6 +41,16 @@ flybuy.createMap(container, data);
 
 _Note: The DOM must be loaded before you attempt to create the map. The example uses the `DOMContentLoaded` event, but you could also move the `<script>` tag after the body._
 
+## Completion handler hook when creating maps
+
+If you need a completion handler hook when creating a map, `createMap` returns a Promise:
+```
+flybuy.createMap(container, data)
+  .then(success => {})
+  .catch(success => {})
+});
+```
+
 ## Updating a map
 
 If you want to update a map after it has been drawn, you can call `flybuy.update`:
@@ -68,7 +78,3 @@ flybuy.removeMarker(markerIdToRemove);
 ## Example implementations
 
 See the sample [Google Maps](google.html) and [Mapbox](mapbox.html) implementations.
-
-## Features not implemented yet
-
-* Mapbox is not yet supported as a provider
