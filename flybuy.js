@@ -4,50 +4,54 @@ class Flybuy {
     this.map = null;
     this.provider = null;
     this.markers = [];
-    this._premisesFeatureId;
-    this._pickupAreaFeatureIds = [];
-    this._premisesBounds = null;
+    this._pickupAreasFeatureIds = [];
+    this._premisesFeatureId = null
+    this._premisesSourceId = null;
+    this._premisesLayerId = null;
+    this._pickupAreasSourceId = null;
+    this._pickupAreasLayerIds = [];
+    this._premisesFeatureBounds = null;
   }
 
   // PUBLIC METHODS
 
-  createMap(containerSelector, payloadData, callback) {
-    // Try to determine which map provider (Google, Mapbox, etc.) is being used
-    this.provider = this._determineMapProvider();
+  createMap(containerSelector, payloadData) {
+    return new Promise((resolve, reject) => {
 
-    if (!this.provider) {
-      throw new Error('Could not determine map provider.');
-    }
+      // Try to determine which map provider (Google, Mapbox, etc.) is being used
+      this.provider = this._determineMapProvider();
 
-    // Make sure the access token is provided if needed
-    if (!this._checkAccessToken(this.provider)) {
-      throw new Error('Access token for provider not found. Aborting.');
-    }
+      if (!this.provider) {
+        throw new Error('Could not determine map provider.');
+      }
 
-    // Find the DOM element where the map should be drawn
-    let containerElement = this._findContainerElement(containerSelector);
+      // Make sure the access token is provided if needed
+      if (!this._checkAccessToken(this.provider)) {
+        throw new Error('Access token for provider not found. Aborting.');
+      }
 
-    if (!containerElement) {
-      throw new Error('Container element for map selector not found. Aborting.');
-    }
+      // Find the DOM element where the map should be drawn
+      let containerElement = this._findContainerElement(containerSelector);
 
-    // Create a no-op function if a callback was not provided
-    callback = callback || function() {};
+      if (!containerElement) {
+        throw new Error('Container element for map selector not found. Aborting.');
+      }
 
-    // Attempt to draw the map for the provider
-    this.map = this._initMapForProvider(this.provider, containerElement, payloadData.data)
-      .then(map => {
-        this.map = map;
-        this._drawPremises(payloadData.data);
-        this._drawPickupAreas(payloadData.data);
-        this._updateOrders(payloadData.data);
-        this._styleMap();
-        callback(true);
-      })
-      .catch(error => {
-        console.error(error);
-        callback(false);
-      });
+      // Attempt to draw the map for the provider
+      this.map = this._initMapForProvider(this.provider, containerElement, payloadData.data)
+        .then(map => {
+          this.map = map;
+          this._drawPremises(payloadData.data);
+          this._drawPickupAreas(payloadData.data);
+          this._updateOrders(payloadData.data);
+          this._styleMap();
+          resolve(true);
+        })
+        .catch(error => {
+          console.error(error);
+          reject(false);
+        });
+    });
   }
 
   removeMap() {
@@ -68,6 +72,10 @@ class Flybuy {
       this.markers.splice(markerIndex, 1);
     }
     else if (this.provider === 'mapbox') {
+      this.markers[markerIndex].marker.remove();
+      this.markers.splice(markerIndex, 1);
+    }
+    else {
       console.log('removingMarker for provider is not yet supported');
     }
   }
@@ -152,6 +160,7 @@ class Flybuy {
       if (provider === 'google') {
         let centerPoint = new google.maps.LatLng(lat,lng);
         let map = new google.maps.Map(containerElement);
+
         let bounds = new google.maps.LatLngBounds();
         bounds.extend(centerPoint);
         map.fitBounds(bounds);
@@ -212,26 +221,29 @@ class Flybuy {
     // Attempt to find the premises polygon from the data provided
     if (data.site && data.site.premises_coordinates) {
       let premisesFeature = data.site.premises_coordinates;
-      this._premisesFeatureId = premisesFeature.id;
 
       if (this.provider === 'google') {
+        this._clearGoogleFeature(premisesFeature.id);
         let premisesGeoJson = {'type': 'FeatureCollection', 'features': [premisesFeature]};
-        this._clearFeature(premisesFeature.id);
         this.map.data.addGeoJson(premisesGeoJson);
+        this._premisesFeatureId = premisesFeature.id;
         this._centerMap();
       }
       else if (this.provider === 'mapbox') {
-        this._clearFeature(premisesFeature.id);
+        this._clearMapboxFeature(this._premisesSourceId, [this._premisesLayerId]);
+        this._premisesFeatureBounds = this._computePolygonBoundingBox(premisesFeature);
+        this._premisesSourceId = 'premises-source';
+        this._premisesLayerId = 'premises-layer';
 
-        let sourceId = `source-premises-${premisesFeature.id}`;
-        let sourceFeature = {'type': 'geojson', 'data': premisesFeature};
-        this.map.addSource(sourceId, sourceFeature);
-        this._premisesBounds = this._computePolygonBoundingBox(premisesFeature);
+        this.map.addSource('premises-source', {
+          'type': 'geojson',
+          'data': premisesFeature
+        });
 
         this.map.addLayer({
           'id': 'premises-layer',
           'type': 'line',
-          'source': sourceId,
+          'source': 'premises-source',
           'paint': {
             'line-color': '#FFCC00',
             'line-width': 3
@@ -258,19 +270,17 @@ class Flybuy {
     return bounds;
   }
 
-  // Attempt to remove the feature if it exists on the map already
-  _clearFeature(featureId) {
+  // Attempt to remove the feature if it exists on the Google map already
+  _clearGoogleFeature(featureId) {
+    let existingFeature = this.map.data.getFeatureById(featureId);
+    if (!existingFeature) return;
+    this.map.data.remove(existingFeature);
+  }
 
-    if (this.provider === 'google') {
-      let existingFeature = this.map.data.getFeatureById(featureId);
-      if (!existingFeature) return;
-      this.map.data.remove(existingFeature);
-    }
-    else if (this.provider === 'mapbox') {
-      console.warn('Mapbox clear features not implemented yet');
-    }
-    else {
-      throw new Error('Clearing feature for provider is not yet supported');
+  _clearMapboxFeature(sourceId, layerIds) {
+    if (sourceId && layerIds) {
+      layerIds.map(layerId => this.map.removeLayer(layerId));
+      this.map.removeSource(sourceId);
     }
   }
 
@@ -295,7 +305,7 @@ class Flybuy {
         }
       });
 
-      this.map.fitBounds(bounds);
+      this.map.fitBounds(bounds, {padding: 30, duration: 0});
     }
     else if (this.provider === 'mapbox') {
       let bounds = new mapboxgl.LngLatBounds();
@@ -304,7 +314,7 @@ class Flybuy {
         bounds.extend(markerObj.marker.getLngLat());
       });
 
-      bounds.extend(this._premisesBounds);
+      bounds.extend(this._premisesFeatureBounds);
       this.map.fitBounds(bounds, {padding: 50});
     }
     else {
@@ -321,7 +331,6 @@ class Flybuy {
      // Attempt to find the pickup areas polygons from the data provided
      if (data.site && data.site.pickup_areas) {
       let pickupAreasFeatures = data.site.pickup_areas;
-      this._pickupAreaFeatureIds = pickupAreasFeatures.map(area => area.id);
 
       if (!Array.isArray(pickupAreasFeatures)) {
         console.error('The pickup_areas property must be an array of geojson features.');
@@ -335,15 +344,18 @@ class Flybuy {
       const pickupAreasJson = {'type': 'FeatureCollection', 'features': pickupAreasFeatures};
 
       if (this.provider === 'google') {
-        pickupAreasFeatures.forEach(feature => this._clearFeature(feature.id));
+        pickupAreasFeatures.forEach(feature => this._clearGoogleFeature(feature.id));
         this.map.data.addGeoJson(pickupAreasJson);
+        this._pickupAreasFeatureIds = pickupAreasFeatures.map(area => area.id);
       }
       else if (this.provider === 'mapbox') {
-        pickupAreasFeatures.forEach(feature => this._clearFeature(feature.id));
+        this._clearMapboxFeature(this._pickupAreasSourceId, this._pickupAreasLayerIds);
 
         let sourceId = 'source-pickup-areas';
         let sourceFeatures = {'type': 'geojson', 'data': pickupAreasJson};
         this.map.addSource(sourceId, sourceFeatures);
+        this._pickupAreasSourceId = sourceId;
+        this._pickupAreasLayerIds = ['pickup-areas-fill-layer', 'pickup-areas-stroke-layer'];
 
         this.map.addLayer({
           'id': 'pickup-areas-fill-layer',
@@ -387,7 +399,7 @@ class Flybuy {
           }
         }
         // Style the pickup areas
-        else if (this._pickupAreaFeatureIds.includes(feature.getId())) {
+        else if (this._pickupAreasFeatureIds.includes(feature.getId())) {
           return {
             fillColor: '#FFCC00',
             fillOpacity: 0.25,
@@ -438,11 +450,11 @@ class Flybuy {
     let lng = parseFloat(longitude);
 
     if (this.provider === 'google') {
-      let latLng = new google.maps.LatLng(lat, lng);
+      let latLng = new google.maps.LatLng(lat,lng);
       marker.setPosition(latLng);
     }
     else {
-      throw new Error('Moving marker for provider not yet supported');
+      marker.setLngLat([lng,lat]);
     }
   }
 
