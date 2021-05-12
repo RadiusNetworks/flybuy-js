@@ -15,7 +15,7 @@ class Flybuy {
 
   // PUBLIC METHODS
 
-  createMap(containerSelector, payloadData) {
+  createMap(containerSelector, payloadData, showControls=false) {
     return new Promise((resolve, reject) => {
 
       // Try to determine which map provider (Google, Mapbox, etc.) is being used
@@ -38,7 +38,7 @@ class Flybuy {
       }
 
       // Attempt to draw the map for the provider
-      this.map = this._initMapForProvider(this.provider, containerElement, payloadData.data)
+      this.map = this._initMapForProvider(this.provider, containerElement, payloadData.data, showControls)
         .then(map => {
           this.map = map;
           this._drawPremises(payloadData.data);
@@ -146,7 +146,7 @@ class Flybuy {
     }
   }
 
-  _initMapForProvider(provider, containerElement, data) {
+  _initMapForProvider(provider, containerElement, data, showControls) {
     return new Promise((resolve, reject) => {
       let lat = 0.0;
       let lng = 0.0;
@@ -159,7 +159,7 @@ class Flybuy {
 
       if (provider === 'google') {
         let centerPoint = new google.maps.LatLng(lat,lng);
-        let map = new google.maps.Map(containerElement);
+        let map = new google.maps.Map(containerElement, {disableDefaultUI: !showControls});
 
         let bounds = new google.maps.LatLngBounds();
         bounds.extend(centerPoint);
@@ -177,6 +177,10 @@ class Flybuy {
 
         let bounds = new mapboxgl.LngLatBounds([lng,lat], [lng,lat]);
         map.fitBounds(bounds);
+
+        if (showControls === true) {
+          map.addControl(new mapboxgl.NavigationControl());
+        }
 
         map.on('load', () => {
           resolve(map);
