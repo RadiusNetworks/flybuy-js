@@ -41,19 +41,43 @@ flybuy.createMap(container, data);
 
 _Note: The DOM must be loaded before you attempt to create the map. The example uses the `DOMContentLoaded` event, but you could also move the `<script>` tag after the body._
 
-## Showing the navigation controls on the map
+## Customizing the map (Google)
 
-By default, the navigation controls (zoom, orient, street view, etc.) are hidden. If you wish to display them, you can pass `true` to `createMap`:
+The `createMap` method takes an optional configuration object that can be used to customize the appearance of the map. The object is passed along directly to the Google Maps constructor so you can use any configuration options found in the Google SDK.
+
+The example below turns off navigation controls and POI markers:
 ```
-let showControls = true;
-flybuy.createMap(container, data, showControls);
+let configOptions = {
+  disableDefaultUI: true,
+  styles: [{
+    featureType: 'poi',
+    stylers: [{
+      visibility: 'off'
+    }]
+  }]
+};
+
+fetch(jsonFile).then(response => response.json()).then(data => {
+  flybuy.createMap('div#map', data, configOptions);
+});
 ```
+
+## Customizing the map (Mapbox)
+
+Because Mapbox has very different syntax for configuring their maps, we currenly only support one directive, `showNavigationControl`, that turns on/off navigation controls:
+
+```
+let configOptions = {showNavigationControl: false};
+flybuy.createMap(container, data, configOptions);
+```
+
+_Note: If you need additional configuration options, get in touch with your customer success manager and we'll evaluate adding it._
 
 ## Completion handler hook when creating maps
 
 If you need a completion handler hook when creating a map, `createMap` returns a Promise:
 ```
-flybuy.createMap(container, data, showControls)
+flybuy.createMap(container, data)
   .then(success => {})
   .catch(success => {})
 });

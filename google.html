@@ -12,8 +12,13 @@
       window.addEventListener('DOMContentLoaded', () => {
         let jsonFile = 'sample_data/initial_orders_api.json';
 
+        let configOptions = {
+          disableDefaultUI: true,
+          styles: [{ featureType: "poi", stylers: [{ visibility: "off" }] }]
+        };
+
         fetch(jsonFile).then(response => response.json()).then(data => {
-          flybuy.createMap('div#map', data);
+          flybuy.createMap('div#map', data, configOptions);
         });
       });
     </script>
